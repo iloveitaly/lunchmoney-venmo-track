@@ -1,12 +1,15 @@
+import structlog
 from dataclasses import dataclass, fields
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, List, Literal, Tuple
+from typing import List, Literal, Tuple
 from lunchable import LunchMoney
 
 from sqlite3 import Connection
 
-from lunchable.models.transactions import TransactionObject, TransactionUpdateObject
+from lunchable.models.transactions import TransactionObject
+
+log = structlog.get_logger()
 
 # How many days back will we try and look for matching transactions? Anything
 # older will be ignored forever
@@ -17,7 +20,6 @@ def update_lunchmoney_transactions(
     db: Connection,
     token: str,
     category_name: str,
-    output: Callable[[str], None],
 ):
     """
     Updates lunch money transactions with details from previously tracked venmo
@@ -31,15 +33,14 @@ def update_lunchmoney_transactions(
     the database.
     """
 
-    output("Updating Lunch Money transactions")
+    log.info("updating lunch money transactions", category_name=category_name)
 
     lunch = LunchMoney(access_token=token)
 
     try:
         category = next(c for c in lunch.get_categories() if c.name == category_name)
     except StopIteration:
-        # TODO: What kind of error to show?
-        output(f"xx: Cannot find Lunch Money category {category_name}")
+        log.error("cannot find lunch money category", category_name=category_name)
         return
 
     # Find lunch money transactiosn that haven't been updated
@@ -127,12 +128,17 @@ def update_lunchmoney_transactions(
         )
         db.commit()
 
-    count = f"{len(matched_transactions)} / {len(lm_transactions)}"
-    output("")
-    output(f"Lunch Money Updates: {count} transactions matched")
-
-    if len(matched_transactions) > 0:
-        output("")
+    log.info(
+        "lunch money updates completed",
+        matched_count=len(matched_transactions),
+        total_unlinked_lm_transactions=len(lm_transactions),
+    )
 
     for venmo_txn, lm_txn in matched_transactions:
-        output(f" -> {venmo_txn.target_actor} ({venmo_txn.note}) → LM: {lm_txn.id}")
+        log.info(
+            "transaction matched",
+            venmo_actor=venmo_txn.target_actor,
+            venmo_note=venmo_txn.note,
+            lunchmoney_transaction_id=lm_txn.id,
+        )
+

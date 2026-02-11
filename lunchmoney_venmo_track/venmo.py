@@ -1,11 +1,13 @@
 import sqlite3
+import structlog
+from typing import List, Union, Optional
 from datetime import datetime
-from typing import Any, List, Optional, Union
 
 from venmo_api import Client, Transaction
 
 from lunchmoney_venmo_track.lunchmoney import update_lunchmoney_transactions
 
+log = structlog.get_logger()
 
 def process_venmo_transactions(
     token: str,
@@ -14,28 +16,16 @@ def process_venmo_transactions(
     lunchmoney_category: Optional[str] = None,
     dry_run: bool = False,
     allow_remaining: bool = False,
-    quiet: bool = False,
-    output_func: Optional[Any] = None,
 ):
     """
     Process Venmo transactions: cash out balance and sync with Lunch Money.
     """
-
-    if output_func is None:
-
-        def output(msg: str) -> None:
-            if not quiet:
-                print(msg)
-    else:
-        output = output_func
-
+    
     if lunchmoney_token and not db_path:
-        raise ValueError("db_path must be specified to use the LM integration")
-
+         raise ValueError("db_path must be specified to use the LM integration")
+    
     if (lunchmoney_token is None) != (lunchmoney_category is None):
-        raise ValueError(
-            "Both lunchmoney_token and lunchmoney_category are required for LM integration"
-        )
+         raise ValueError("Both lunchmoney_token and lunchmoney_category are required for LM integration")
 
     db: Optional[sqlite3.Connection] = None
 
@@ -64,8 +54,7 @@ def process_venmo_transactions(
         cursor.execute("SELECT transaction_id FROM seen_transactions")
         seen_transaction_ids = [row[0] for row in cursor.fetchall()]
 
-    # output the date and time so when this is running on a cron we know the last time it was run
-    output(f"Running venmo_auto_cashout at {datetime.now()}")
+    log.info("processing venmo transactions", timestamp=datetime.now())
 
     # Venmo API client
     venmo = Client(access_token=token)
@@ -77,10 +66,10 @@ def process_venmo_transactions(
     current_balance: int = me.balance
 
     if current_balance == 0 and not db:
-        output("Your venmo balance is zero. Nothing to do")
+        log.info("venmo balance is zero", balance=0)
         return
 
-    output("Your balance is ${:,.2f}".format(current_balance / 100))
+    log.info("current venmo balance", balance=current_balance / 100)
 
     # XXX: There may be some leftover amount if the transactions do not match
     # up exactly to the current account balance.
@@ -100,10 +89,7 @@ def process_venmo_transactions(
 
         # Extract expense transactions we haven't seen yet
         if is_expense:
-            if (
-                seen_transaction_ids is None
-                or transaction.id not in seen_transaction_ids
-            ):
+            if seen_transaction_ids is None or transaction.id not in seen_transaction_ids:
                 expense_transactions.append(transaction)
 
         # Only track income transactions until we've exhausted the
@@ -112,58 +98,49 @@ def process_venmo_transactions(
             remaining_balance = remaining_balance - transaction.amount
             income_transactions.append(transaction)
 
-    all_transactions = [*income_transactions, *expense_transactions]
-    has_transactions = len(all_transactions) > 0
-
-    # Show some details about what we're about to do
-    output(
-        "There are {} income transactions to cash-out".format(len(income_transactions))
+    log.info(
+        "transaction counts",
+        income_count=len(income_transactions),
+        expense_count=len(expense_transactions),
+        remaining_balance=remaining_balance / 100
     )
-    output(
-        "There are {} expense transactions to track".format(len(expense_transactions))
-    )
-
-    if has_transactions or remaining_balance > 0:
-        output("")
 
     for transaction in income_transactions:
-        output(
-            " -> Income: +${price:,.2f} -- {name} ({note})".format(
-                name=transaction.payer.display_name,
-                price=transaction.amount / 100,
-                note=transaction.note,
-            )
+        log.info(
+            "income transaction identified",
+            amount=transaction.amount / 100,
+            actor=transaction.payer.display_name,
+            note=transaction.note
         )
 
     if remaining_balance > 0:
-        output(" -> Income: ${:,.2f} of extra balance".format(remaining_balance / 100))
+        log.info("extra balance identified", amount=remaining_balance / 100)
 
     for transaction in expense_transactions:
-        output(
-            " -> Expense: -${price:,.2f} -- {name} ({note})".format(
-                name=transaction.payee.display_name,
-                price=transaction.amount / 100,
-                note=transaction.note,
-            )
+        log.info(
+            "expense transaction identified",
+            amount=transaction.amount / 100,
+            actor=transaction.payee.display_name,
+            note=transaction.note
         )
 
     # Nothing left to do in dry-run mode
     if dry_run:
-        output("\ndry-run. Not initiating transfers")
+        log.info("dry-run enabled, skipping transfers")
         return
 
     # Do not cash out if
     if not allow_remaining and remaining_balance > 0:
-        output(
-            "\nRemaining balance without --allow-remaining. Not initiating transfers"
-        )
+        log.info("remaining balance present and --allow-remaining is false, skipping transfers")
         return
 
     # Do the transactions
     for transaction in income_transactions:
+        log.info("initiating transfer for income", amount=transaction.amount / 100)
         venmo.transfer.initiate_transfer(amount=transaction.amount)
 
     if remaining_balance > 0:
+        log.info("initiating transfer for remaining balance", amount=remaining_balance / 100)
         venmo.transfer.initiate_transfer(amount=remaining_balance)
 
     # Update seen expense transaction
@@ -193,7 +170,6 @@ def process_venmo_transactions(
             db,
             lunchmoney_token,
             lunchmoney_category,
-            output,
         )
 
-    output("\nAll money transferred out!")
+    log.info("venmo processing completed")

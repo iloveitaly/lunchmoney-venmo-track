@@ -1,14 +1,17 @@
 import click
 from decouple import config
+from structlog_config import configure_logger
 
 from lunchmoney_venmo_track.venmo import process_venmo_transactions
 
+def setup_logging():
+    # Read environment variables directly to determine configuration
+    json_logging = config("JSON_LOGGING", default=True, cast=bool)
+    
+    # Configure the logger using structlog-config
+    configure_logger(json_logger=json_logging)
+
 @click.command()
-@click.option(
-    "--quiet/--no-quiet",
-    default=False,
-    help="Do not produce any output",
-)
 @click.option(
     "--dry-run/--no-dry-run",
     default=False,
@@ -41,7 +44,6 @@ from lunchmoney_venmo_track.venmo import process_venmo_transactions
     help="The Lunch Money category to look for venmo transactions",
 )
 def cli(
-    quiet: bool,
     dry_run: bool,
     allow_remaining: bool,
     token: str,
@@ -52,6 +54,8 @@ def cli(
     """
     Automatically cash-out your Venmo balance as individual transfers
     """
+    setup_logging()
+    
     if lunchmoney_token and not transaction_db:
         raise click.UsageError("--transaction-db must be specified to use the LM integration")
 
@@ -65,8 +69,9 @@ def cli(
         lunchmoney_category=lunchmoney_category,
         dry_run=dry_run,
         allow_remaining=allow_remaining,
-        quiet=quiet
     )
+
+    click.secho("\nAll Venmo transactions processed successfully!", fg="green", bold=True)
 
 if __name__ == "__main__":
     cli()
