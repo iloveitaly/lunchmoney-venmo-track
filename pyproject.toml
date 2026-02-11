@@ -9,7 +9,9 @@ dependencies = [
     "click>=8.3.1",
     "lunchable>=1.4.3",
     "python-decouple-typed>=3.11.0",
+    "requests>=2.32.5",
     "structlog-config>=0.10.0",
+    "tenacity>=9.1.4",
     "venmo-api-unofficial",
 ]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
