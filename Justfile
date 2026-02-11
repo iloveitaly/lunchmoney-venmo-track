@@ -9,7 +9,8 @@ up:
 
 # Build the docker image locally
 build:
-    railpack build
+  export BUILDKIT_HOST='docker-container://buildkit' && \
+    railpack build . --show-plan
 
 # Run tests
 test:

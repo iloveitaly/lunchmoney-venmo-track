@@ -1,0 +1,18 @@
+# Required
+export VENMO_API_TOKEN=""
+
+# Optional - Required for Lunch Money integration
+export TRANSACTION_DB="transactions.db"
+
+# Optional - Lunch Money Integration
+export LUNCHMONEY_TOKEN=""
+export LUNCHMONEY_CATEGORY=""
+
+# Optional - Behavior
+# export ALLOW_REMAINING="true"
+# export HEARTBEAT_URL=""
+# export JSON_LOGGING="false"
+# export LOG_LEVEL="INFO"
+
+# Optional - Docker/Cron
+# export SCHEDULE="0 6 * * *"
