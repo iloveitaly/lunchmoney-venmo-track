@@ -1,7 +1,4 @@
-from structlog_config import configure_logger
-
-logger = configure_logger()
-
+from lunchmoney_venmo_track.cli import cli
 
 def main():
-    logger.info("Hello, Logs!")
+    cli()

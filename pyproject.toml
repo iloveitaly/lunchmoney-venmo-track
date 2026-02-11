@@ -5,7 +5,13 @@ description = ""
 keywords = []
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["structlog-config>=0.10.0"]
+dependencies = [
+    "click>=8.3.1",
+    "lunchable>=1.4.3",
+    "python-decouple-typed>=3.11.0",
+    "structlog-config>=0.10.0",
+    "venmo-api-unofficial",
+]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/lunchmoney-venmo-track" }
 
@@ -20,6 +26,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 # avoids the src/ directory structure
 module-root = ""
+
+[tool.uv.sources]
+venmo-api-unofficial = { git = "https://github.com/iloveitaly/venmo-api-unofficial", rev = "patch-1" }
 
 [dependency-groups]
 dev = [
