@@ -7,6 +7,10 @@ setup:
 up:
     docker compose up -d --wait
 
+# Build the docker image locally
+build:
+    railpack build
+
 # Run tests
 test:
     uv run pytest -v

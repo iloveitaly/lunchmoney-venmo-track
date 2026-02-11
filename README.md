@@ -83,6 +83,12 @@ access_token: xxxx
 device-id: xxxx
 ```
 
+### Heartbeat Support
+
+You can specify a `HEARTBEAT_URL` environment variable to be pinged after each successful execution. This is highly recommended for monitoring your cron jobs.
+
+We recommend using [Uptime Kuma](https://github.com/louislam/uptime-kuma) to monitor these heartbeats.
+
 ### Installation
 
 This project uses `uv` for dependency management.
@@ -103,4 +109,5 @@ export TRANSACTION_DB=
 export LUNCHMONEY_TOKEN=
 export LUNCHMONEY_CATEGORY=
 export ALLOW_REMAINING=true
+export HEARTBEAT_URL=
 ```

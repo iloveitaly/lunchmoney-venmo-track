@@ -3,6 +3,7 @@ from decouple import config
 from structlog_config import configure_logger
 
 from lunchmoney_venmo_track.venmo import process_venmo_transactions
+from lunchmoney_venmo_track.heartbeat import send_heartbeat
 
 def setup_logging():
     # Read environment variables directly to determine configuration
@@ -72,6 +73,11 @@ def cli(
     )
 
     click.secho("\nAll Venmo transactions processed successfully!", fg="green", bold=True)
+    
+    heartbeat_url = config("HEARTBEAT_URL", default=None)
+    if heartbeat_url:
+        send_heartbeat(heartbeat_url)
+
 
 if __name__ == "__main__":
     cli()
