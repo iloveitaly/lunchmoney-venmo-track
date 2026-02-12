@@ -6,6 +6,7 @@ keywords = []
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "backoff>=2.2.1",
     "click>=8.3.1",
     "lunchable>=1.4.3",
     "python-decouple-typed>=3.11.0",

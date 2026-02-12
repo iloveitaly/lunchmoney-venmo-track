@@ -1,9 +1,11 @@
 import click
+import sys
 from decouple import config
 from structlog_config import configure_logger
 
 from lunchmoney_venmo_track.venmo import process_venmo_transactions
 from lunchmoney_venmo_track.heartbeat import send_heartbeat
+from lunchmoney_venmo_track.internet import wait_for_internet_connection
 
 def setup_logging():
     # Read environment variables directly to determine configuration
@@ -56,6 +58,10 @@ def cli(
     Automatically cash-out your Venmo balance as individual transfers
     """
     setup_logging()
+
+    # If we are running in a cron/non-interactive context, wait for internet
+    if not sys.stdin.isatty():
+        wait_for_internet_connection()
     
     if lunchmoney_token and not transaction_db:
         raise click.UsageError("--transaction-db must be specified to use the LM integration")
