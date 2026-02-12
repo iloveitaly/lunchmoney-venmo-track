@@ -9,6 +9,7 @@ from lunchmoney_venmo_track.lunchmoney import update_lunchmoney_transactions
 
 log = structlog.get_logger()
 
+
 def process_venmo_transactions(
     token: str,
     db_path: Optional[str] = None,
@@ -20,12 +21,14 @@ def process_venmo_transactions(
     """
     Process Venmo transactions: cash out balance and sync with Lunch Money.
     """
-    
+
     if lunchmoney_token and not db_path:
-         raise ValueError("db_path must be specified to use the LM integration")
-    
+        raise ValueError("db_path must be specified to use the LM integration")
+
     if (lunchmoney_token is None) != (lunchmoney_category is None):
-         raise ValueError("Both lunchmoney_token and lunchmoney_category are required for LM integration")
+        raise ValueError(
+            "Both lunchmoney_token and lunchmoney_category are required for LM integration"
+        )
 
     db: Optional[sqlite3.Connection] = None
 
@@ -89,7 +92,10 @@ def process_venmo_transactions(
 
         # Extract expense transactions we haven't seen yet
         if is_expense:
-            if seen_transaction_ids is None or transaction.id not in seen_transaction_ids:
+            if (
+                seen_transaction_ids is None
+                or transaction.id not in seen_transaction_ids
+            ):
                 expense_transactions.append(transaction)
 
         # Only track income transactions until we've exhausted the
@@ -102,7 +108,7 @@ def process_venmo_transactions(
         "transaction counts",
         income_count=len(income_transactions),
         expense_count=len(expense_transactions),
-        remaining_balance=remaining_balance / 100
+        remaining_balance=remaining_balance / 100,
     )
 
     for transaction in income_transactions:
@@ -110,7 +116,7 @@ def process_venmo_transactions(
             "income transaction identified",
             amount=transaction.amount / 100,
             actor=transaction.payer.display_name,
-            note=transaction.note
+            note=transaction.note,
         )
 
     if remaining_balance > 0:
@@ -121,7 +127,7 @@ def process_venmo_transactions(
             "expense transaction identified",
             amount=transaction.amount / 100,
             actor=transaction.payee.display_name,
-            note=transaction.note
+            note=transaction.note,
         )
 
     # Nothing left to do in dry-run mode
@@ -131,7 +137,9 @@ def process_venmo_transactions(
 
     # Do not cash out if
     if not allow_remaining and remaining_balance > 0:
-        log.info("remaining balance present and --allow-remaining is false, skipping transfers")
+        log.info(
+            "remaining balance present and --allow-remaining is false, skipping transfers"
+        )
         return
 
     # Do the transactions
@@ -140,7 +148,9 @@ def process_venmo_transactions(
         venmo.transfer.initiate_transfer(amount=transaction.amount)
 
     if remaining_balance > 0:
-        log.info("initiating transfer for remaining balance", amount=remaining_balance / 100)
+        log.info(
+            "initiating transfer for remaining balance", amount=remaining_balance / 100
+        )
         venmo.transfer.initiate_transfer(amount=remaining_balance)
 
     # Update seen expense transaction

@@ -7,12 +7,14 @@ from lunchmoney_venmo_track.venmo import process_venmo_transactions
 from lunchmoney_venmo_track.heartbeat import send_heartbeat
 from lunchmoney_venmo_track.internet import wait_for_internet_connection
 
+
 def setup_logging():
     # Read environment variables directly to determine configuration
     json_logging = config("JSON_LOGGING", default=True, cast=bool)
-    
+
     # Configure the logger using structlog-config
     configure_logger(json_logger=json_logging)
+
 
 @click.command()
 @click.option(
@@ -62,12 +64,16 @@ def cli(
     # If we are running in a cron/non-interactive context, wait for internet
     if not sys.stdin.isatty():
         wait_for_internet_connection()
-    
+
     if lunchmoney_token and not transaction_db:
-        raise click.UsageError("--transaction-db must be specified to use the LM integration")
+        raise click.UsageError(
+            "--transaction-db must be specified to use the LM integration"
+        )
 
     if (lunchmoney_token is None) != (lunchmoney_category is None):
-        raise click.UsageError("--lunchmoney-token and --lunchmoney-category are both required for LM integration")
+        raise click.UsageError(
+            "--lunchmoney-token and --lunchmoney-category are both required for LM integration"
+        )
 
     process_venmo_transactions(
         token=token,
@@ -78,8 +84,10 @@ def cli(
         allow_remaining=allow_remaining,
     )
 
-    click.secho("\nAll Venmo transactions processed successfully!", fg="green", bold=True)
-    
+    click.secho(
+        "\nAll Venmo transactions processed successfully!", fg="green", bold=True
+    )
+
     heartbeat_url = config("HEARTBEAT_URL", default=None)
     if heartbeat_url:
         send_heartbeat(heartbeat_url)

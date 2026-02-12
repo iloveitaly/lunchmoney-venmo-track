@@ -4,10 +4,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 log = structlog.get_logger()
 
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    reraise=False
+    reraise=False,
 )
 def send_heartbeat(url: str) -> None:
     """
@@ -22,6 +23,6 @@ def send_heartbeat(url: str) -> None:
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.error("heartbeat failed", url=url, error=str(e))
-        # We re-raise to trigger tenacity retry, but reraise=False in decorator 
+        # We re-raise to trigger tenacity retry, but reraise=False in decorator
         # means the final failure won't crash the app if all retries fail
         raise e

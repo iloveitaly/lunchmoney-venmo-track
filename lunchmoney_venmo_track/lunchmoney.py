@@ -141,4 +141,3 @@ def update_lunchmoney_transactions(
             venmo_note=venmo_txn.note,
             lunchmoney_transaction_id=lm_txn.id,
         )
-
