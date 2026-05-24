@@ -88,7 +88,7 @@ def update_lunchmoney_transactions(
 
     # Update lunch money and venmo transaction records
     for lm_txn in lm_transactions:
-        transaction_type = "expense" if lm_txn.amount > 0 else "income"
+        transaction_type = "income" if lm_txn.amount > 0 else "expense"
         amount = int(Decimal(str(abs(lm_txn.amount))) * 100)
 
         try:
