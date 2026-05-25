@@ -135,6 +135,8 @@ dmypy.json
 # i like having temporary files specified locally vs globally
 tmp/
 
+*.db
+
 # START AI INSTRUCTION IGNORES
 /.agents/rules/python.md
 /.agents/skills/standalone-python-scripts/SKILL.md

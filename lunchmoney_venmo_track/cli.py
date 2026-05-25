@@ -23,6 +23,11 @@ def setup_logging():
     help="Do not actually initiate bank transfers",
 )
 @click.option(
+    "--skip-transfer/--no-skip-transfer",
+    default=False,
+    help="Skip bank transfers but still update the DB and Lunch Money",
+)
+@click.option(
     "--allow-remaining/--no-allow-remaining",
     default=config("ALLOW_REMAINING", default=False, cast=bool),
     help="Allow remaining balance to be cashed-out",
@@ -50,6 +55,7 @@ def setup_logging():
 )
 def cli(
     dry_run: bool,
+    skip_transfer: bool,
     allow_remaining: bool,
     token: str,
     transaction_db: str,
@@ -81,6 +87,7 @@ def cli(
         lunchmoney_token=lunchmoney_token,
         lunchmoney_category=lunchmoney_category,
         dry_run=dry_run,
+        skip_transfer=skip_transfer,
         allow_remaining=allow_remaining,
     )
 

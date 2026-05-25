@@ -1,4 +1,5 @@
 import sqlite3
+import time
 import pytest
 from unittest.mock import MagicMock
 from venmo_api import Transaction, User
@@ -46,8 +47,9 @@ def memory_db(memory_db_path):
             amount INT NOT NULL,
             note TEXT NOT NULL,
             target_actor TEXT NOT NULL,
-            lunchmoney_transaction_id INT ,
-            date_created TEXT DEFAULT (datetime('now'))
+            lunchmoney_transaction_id INT,
+            date_created TEXT DEFAULT (datetime('now')),
+            payment_date TEXT
         );
         """
     )
@@ -82,5 +84,8 @@ def create_mock_transaction(
     else:
         t.payer = me_user
         t.payee = other_user
-        
+
+    t.date_completed = int(time.time())
+    t.date_created = int(time.time())
+
     return t

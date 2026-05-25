@@ -95,7 +95,7 @@ def test_process_venmo_ignore_seen_expense(mock_venmo_client, memory_db_path):
     import sqlite3
     conn = sqlite3.connect(memory_db_path)
     conn.execute(
-        "CREATE TABLE seen_transactions (id INTEGER PRIMARY KEY, transaction_id TEXT, transaction_type TEXT, amount INT, note TEXT, target_actor TEXT, lunchmoney_transaction_id INT, date_created TEXT)"
+        "CREATE TABLE seen_transactions (id INTEGER PRIMARY KEY, transaction_id TEXT, transaction_type TEXT, amount INT, note TEXT, target_actor TEXT, lunchmoney_transaction_id INT, date_created TEXT, payment_date TEXT)"
     )
     conn.execute("INSERT INTO seen_transactions (transaction_id, transaction_type) VALUES ('t_old', 'expense')")
     conn.commit()

@@ -7,7 +7,8 @@ def test_cli_help():
     assert result.exit_code == 0
     assert "Automatically cash-out your Venmo balance" in result.output
 
-def test_cli_missing_args():
+def test_cli_missing_args(monkeypatch):
+    monkeypatch.delenv("VENMO_API_TOKEN", raising=False)
     runner = CliRunner()
     result = runner.invoke(cli, [])
     assert result.exit_code != 0

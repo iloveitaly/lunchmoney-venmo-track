@@ -16,6 +16,7 @@ def process_venmo_transactions(
     lunchmoney_token: Optional[str] = None,
     lunchmoney_category: Optional[str] = None,
     dry_run: bool = False,
+    skip_transfer: bool = False,
     allow_remaining: bool = False,
 ):
     """
@@ -44,8 +45,9 @@ def process_venmo_transactions(
                 amount INT NOT NULL,
                 note TEXT NOT NULL,
                 target_actor TEXT NOT NULL,
-                lunchmoney_transaction_id INT ,
-                date_created TEXT DEFAULT (datetime('now'))
+                lunchmoney_transaction_id INT,
+                date_created TEXT DEFAULT (datetime('now')),
+                payment_date TEXT
             );"""
         )
 
@@ -98,6 +100,11 @@ def process_venmo_transactions(
             ):
                 expense_transactions.append(transaction)
 
+        # When skipping transfers, capture all income for LM tracking since
+        # the balance may already be zeroed by a prior cashout
+        elif skip_transfer:
+            income_transactions.append(transaction)
+
         # Only track income transactions until we've exhausted the
         # current balance
         elif transaction.amount <= remaining_balance:
@@ -132,7 +139,7 @@ def process_venmo_transactions(
 
     # Nothing left to do in dry-run mode
     if dry_run:
-        log.info("dry-run enabled, skipping transfers")
+        log.info("dry-run enabled, skipping transfers and db writes")
         return
 
     # Do not cash out if
@@ -143,30 +150,38 @@ def process_venmo_transactions(
         return
 
     # Do the transactions
-    for transaction in income_transactions:
-        log.info("initiating transfer for income", amount=transaction.amount / 100)
-        venmo.transfer.initiate_transfer(amount=transaction.amount)
+    if skip_transfer:
+        log.info("skip-transfer enabled, skipping bank transfers")
+    else:
+        for transaction in income_transactions:
+            log.info("initiating transfer for income", amount=transaction.amount / 100)
+            venmo.transfer.initiate_transfer(amount=transaction.amount)
 
-    if remaining_balance > 0:
-        log.info(
-            "initiating transfer for remaining balance", amount=remaining_balance / 100
-        )
-        venmo.transfer.initiate_transfer(amount=remaining_balance)
+        if remaining_balance > 0:
+            log.info(
+                "initiating transfer for remaining balance", amount=remaining_balance / 100
+            )
+            venmo.transfer.initiate_transfer(amount=remaining_balance)
 
     # Update seen expense transaction
     if db:
         query = """
         INSERT INTO seen_transactions
-        (transaction_type, transaction_id, amount, note, target_actor)
-        VALUES(?, ?, ?, ?, ?)
+        (transaction_type, transaction_id, amount, note, target_actor, payment_date)
+        VALUES(?, ?, ?, ?, ?, ?)
         """
+
+        def _payment_date(t) -> str:
+            epoch = t.date_completed or t.date_created
+            return datetime.fromtimestamp(epoch).date().isoformat()
+
         records = [
             *[
-                ("income", t.id, t.amount, t.note, t.payer.display_name)
+                ("income", t.id, t.amount, t.note, t.payer.display_name, _payment_date(t))
                 for t in income_transactions
             ],
             *[
-                ("expense", t.id, t.amount, t.note, t.payee.display_name)
+                ("expense", t.id, t.amount, t.note, t.payee.display_name, _payment_date(t))
                 for t in expense_transactions
             ],
         ]

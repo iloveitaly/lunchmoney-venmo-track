@@ -1,19 +1,22 @@
 import structlog
 from dataclasses import dataclass, fields
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import List, Literal, Tuple
 from lunchable import LunchMoney
 
 from sqlite3 import Connection
 
-from lunchable.models.transactions import TransactionObject
+from lunchable.models.transactions import TransactionObject, TransactionUpdateObject
 
 log = structlog.get_logger()
 
 # How many days back will we try and look for matching transactions? Anything
 # older will be ignored forever
-CUTOFF_DAYS = 30
+CUTOFF_DAYS = 60
+
+# Maximum days between a venmo payment_date and a LM transaction date for a match
+DATE_PROXIMITY_DAYS = 5
 
 
 def update_lunchmoney_transactions(
@@ -66,11 +69,14 @@ def update_lunchmoney_transactions(
         amount: int
         note: str
         target_actor: str
+        # ISO date string; rows without payment_date are excluded at query level
+        payment_date: str
 
     columns = [f.name for f in fields(VenmoRecord)]
 
     # Find transactions that we haven't associated a lunch money transaction,
-    # order by rescency so older transactions that were never correctly associated
+    # order by rescency so older transactions that were never correctly associated.
+    # Exclude rows without payment_date (pre-migration rows can't be date-matched).
     cursor = db.cursor()
     cursor.execute(
         f"""
@@ -78,7 +84,8 @@ def update_lunchmoney_transactions(
         FROM seen_transactions
         WHERE
             lunchmoney_transaction_id is NULL AND
-            date_created > date('now', '-{CUTOFF_DAYS} day')
+            date_created > date('now', '-{CUTOFF_DAYS} day') AND
+            payment_date IS NOT NULL
         ORDER BY date_created DESC"""
     )
     venmo_transactions = [VenmoRecord(*row) for row in cursor.fetchall()]
@@ -88,23 +95,27 @@ def update_lunchmoney_transactions(
 
     # Update lunch money and venmo transaction records
     for lm_txn in lm_transactions:
-        transaction_type = "income" if lm_txn.amount > 0 else "expense"
         amount = int(Decimal(str(abs(lm_txn.amount))) * 100)
 
-        try:
-            matching_venmo = next(
-                venmo_txn
-                for venmo_txn in venmo_transactions
-                if venmo_txn.transaction_type == transaction_type
-                and venmo_txn.amount == amount
-            )
-        except StopIteration:
-            # This can happen when a lunchmoney venmo transaction exists, but
-            # there is no associated venmo transaction.
-            #
-            # This should basically never happen, but we may want to record
-            # something when it does.
+        # Match by amount only — sign from Plaid/bank sync is not a reliable
+        # proxy for venmo P2P direction (both income and expense can appear as
+        # the same sign depending on the account).
+        candidates = [v for v in venmo_transactions if v.amount == amount]
+
+        if not candidates:
             continue
+
+        lm_date = lm_txn.date
+        closest = min(
+            candidates,
+            key=lambda v: abs((date.fromisoformat(v.payment_date) - lm_date).days),
+        )
+        closest_date = date.fromisoformat(closest.payment_date)
+
+        if abs((closest_date - lm_date).days) > DATE_PROXIMITY_DAYS:
+            continue
+
+        matching_venmo = closest
 
         # Remove the consued venmo transaction
         venmo_transactions.remove(matching_venmo)
@@ -112,11 +123,11 @@ def update_lunchmoney_transactions(
         matched_transactions.append((matching_venmo, lm_txn))
 
         # Update transaction in lunch money
-        update = {
-            "payee": matching_venmo.target_actor,
-            "notes": matching_venmo.note,
-        }
-        lunch.update_transaction(lm_txn.id, update)  # type: ignore[arg-type]
+        update = TransactionUpdateObject(
+            payee=matching_venmo.target_actor,
+            notes=matching_venmo.note,
+        )
+        lunch.update_transaction(lm_txn.id, update)
 
         # Record lunch money transaction ID
         cursor = db.cursor()
