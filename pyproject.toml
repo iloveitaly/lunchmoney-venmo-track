@@ -37,7 +37,7 @@ venmo-api-unofficial = { git = "https://github.com/iloveitaly/venmo-api-unoffici
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.4",
+    "pytest>=9.1.0",
     "pyright[nodejs]>=1.1.408",
     "ruff>=0.15.0",
     "coverage>=7.13.4",
