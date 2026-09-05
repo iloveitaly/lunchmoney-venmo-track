@@ -13,6 +13,9 @@ build:
   export BUILDKIT_HOST='docker-container://buildkit' && \
     railpack build . --show-plan
 
+alias image-build := build
+alias image_build := build
+
 # Start docker services
 docker_up:
     docker compose up -d --wait
