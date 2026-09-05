@@ -1,12 +1,11 @@
-import structlog
 from dataclasses import dataclass, fields
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import List, Literal, Tuple
-from lunchable import LunchMoney
-
 from sqlite3 import Connection
+from typing import Literal
 
+import structlog
+from lunchable import LunchMoney
 from lunchable.models.transactions import TransactionObject, TransactionUpdateObject
 
 log = structlog.get_logger()
@@ -91,7 +90,7 @@ def update_lunchmoney_transactions(
     venmo_transactions = [VenmoRecord(*row) for row in cursor.fetchall()]
 
     # Track how many transactions we were able to match
-    matched_transactions: List[Tuple[VenmoRecord, TransactionObject]] = []
+    matched_transactions: list[tuple[VenmoRecord, TransactionObject]] = []
 
     # Update lunch money and venmo transaction records
     for lm_txn in lm_transactions:

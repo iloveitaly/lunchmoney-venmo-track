@@ -1,8 +1,7 @@
 import sqlite3
-import structlog
-from typing import List, Union, Optional
 from datetime import datetime
 
+import structlog
 from venmo_api import Client, Transaction
 
 from lunchmoney_venmo_track.lunchmoney import update_lunchmoney_transactions
@@ -12,9 +11,9 @@ log = structlog.get_logger()
 
 def process_venmo_transactions(
     token: str,
-    db_path: Optional[str] = None,
-    lunchmoney_token: Optional[str] = None,
-    lunchmoney_category: Optional[str] = None,
+    db_path: str | None = None,
+    lunchmoney_token: str | None = None,
+    lunchmoney_category: str | None = None,
     dry_run: bool = False,
     skip_transfer: bool = False,
     allow_remaining: bool = False,
@@ -31,7 +30,7 @@ def process_venmo_transactions(
             "Both lunchmoney_token and lunchmoney_category are required for LM integration"
         )
 
-    db: Optional[sqlite3.Connection] = None
+    db: sqlite3.Connection | None = None
 
     # Setup transactions table
     if db_path is not None:
@@ -52,7 +51,7 @@ def process_venmo_transactions(
         )
 
     # Get list of know transaction IDs
-    seen_transaction_ids: Union[None, List[str]] = None
+    seen_transaction_ids: None | list[str] = None
 
     if db:
         cursor = db.cursor()
@@ -80,8 +79,8 @@ def process_venmo_transactions(
     # up exactly to the current account balance.
     remaining_balance = current_balance
 
-    income_transactions: List[Transaction] = []
-    expense_transactions: List[Transaction] = []
+    income_transactions: list[Transaction] = []
+    expense_transactions: list[Transaction] = []
 
     transactions = venmo.user.get_user_transactions(user=me)
 
@@ -159,7 +158,8 @@ def process_venmo_transactions(
 
         if remaining_balance > 0:
             log.info(
-                "initiating transfer for remaining balance", amount=remaining_balance / 100
+                "initiating transfer for remaining balance",
+                amount=remaining_balance / 100,
             )
             venmo.transfer.initiate_transfer(amount=remaining_balance)
 
@@ -177,11 +177,25 @@ def process_venmo_transactions(
 
         records = [
             *[
-                ("income", t.id, t.amount, t.note, t.payer.display_name, _payment_date(t))
+                (
+                    "income",
+                    t.id,
+                    t.amount,
+                    t.note,
+                    t.payer.display_name,
+                    _payment_date(t),
+                )
                 for t in income_transactions
             ],
             *[
-                ("expense", t.id, t.amount, t.note, t.payee.display_name, _payment_date(t))
+                (
+                    "expense",
+                    t.id,
+                    t.amount,
+                    t.note,
+                    t.payee.display_name,
+                    _payment_date(t),
+                )
                 for t in expense_transactions
             ],
         ]

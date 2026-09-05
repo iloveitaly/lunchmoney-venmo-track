@@ -1,11 +1,12 @@
-import click
 import sys
+
+import click
 from decouple import config
 from structlog_config import configure_logger
 
-from lunchmoney_venmo_track.venmo import process_venmo_transactions
 from lunchmoney_venmo_track.heartbeat import send_heartbeat
 from lunchmoney_venmo_track.internet import wait_for_internet_connection
+from lunchmoney_venmo_track.venmo import process_venmo_transactions
 
 
 def setup_logging():
