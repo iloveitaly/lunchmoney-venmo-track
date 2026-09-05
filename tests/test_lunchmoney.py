@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 from lunchable.models.transactions import TransactionObject
@@ -28,7 +28,7 @@ def test_update_lm_matching(memory_db, mock_lunch_money):
     lm_txn = MagicMock(spec=TransactionObject)
     lm_txn.id = 999
     lm_txn.amount = -15.00
-    lm_txn.date = date.today()
+    lm_txn.date = datetime.now(tz=UTC).date()
     lm_txn.group_id = None
     lm_txn.notes = None
     mock_lunch_money.get_transactions.return_value = [lm_txn]
@@ -71,7 +71,7 @@ def test_update_lm_no_match(memory_db, mock_lunch_money):
     lm_txn = MagicMock(spec=TransactionObject)
     lm_txn.id = 999
     lm_txn.amount = -50.00
-    lm_txn.date = date.today()
+    lm_txn.date = datetime.now(tz=UTC).date()
     lm_txn.group_id = None
     lm_txn.notes = None
     mock_lunch_money.get_transactions.return_value = [lm_txn]
@@ -92,7 +92,7 @@ def test_update_lm_date_proximity_disambiguation(memory_db, mock_lunch_money):
     mock_cat.id = 123
     mock_lunch_money.get_categories.return_value = [mock_cat]
 
-    lm_date = date.today()
+    lm_date = datetime.now(tz=UTC).date()
     lm_txn = MagicMock(spec=TransactionObject)
     lm_txn.id = 999
     lm_txn.amount = -7.00
@@ -135,13 +135,13 @@ def test_update_lm_date_outside_proximity_window(memory_db, mock_lunch_money):
     lm_txn = MagicMock(spec=TransactionObject)
     lm_txn.id = 999
     lm_txn.amount = -25.00
-    lm_txn.date = date.today()
+    lm_txn.date = datetime.now(tz=UTC).date()
     lm_txn.group_id = None
     lm_txn.notes = None
     mock_lunch_money.get_transactions.return_value = [lm_txn]
 
     # Venmo record is 20 days away — outside the ±5 day window
-    far_date = (date.today() - timedelta(days=20)).isoformat()
+    far_date = (datetime.now(tz=UTC).date() - timedelta(days=20)).isoformat()
     memory_db.execute(
         """
         INSERT INTO seen_transactions

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from sqlite3 import Connection
 from typing import Literal
@@ -50,8 +50,8 @@ def update_lunchmoney_transactions(
         transaction
         for transaction in lunch.get_transactions(
             category_id=category.id,
-            start_date=(datetime.now() - timedelta(days=CUTOFF_DAYS)).date(),
-            end_date=datetime.now().date(),
+            start_date=(datetime.now(tz=UTC) - timedelta(days=CUTOFF_DAYS)).date(),
+            end_date=datetime.now(tz=UTC).date(),
         )
         if
         # Ignore grouped transactions
@@ -122,9 +122,12 @@ def update_lunchmoney_transactions(
         matched_transactions.append((matching_venmo, lm_txn))
 
         # Update transaction in lunch money
-        update = TransactionUpdateObject(
-            payee=matching_venmo.target_actor,
-            notes=matching_venmo.note,
+        # TransactionUpdateObject uses Field(None) in lunchable which pyright flags as missing arguments if called directly
+        update = TransactionUpdateObject.model_validate(
+            {
+                "payee": matching_venmo.target_actor,
+                "notes": matching_venmo.note,
+            }
         )
         lunch.update_transaction(lm_txn.id, update)
 

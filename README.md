@@ -83,7 +83,8 @@ You can use `uv run python` to retrieve your token:
 
 ```python
 from venmo_api import Client
-Client.get_access_token(username='myemail@gmail.com', password='myPassword')
+
+Client.get_access_token(username="myemail@gmail.com", password="myPassword")
 ```
 
 ### Heartbeat Support
@@ -102,5 +103,9 @@ export LUNCHMONEY_CATEGORY=
 export ALLOW_REMAINING=true
 export HEARTBEAT_URL=
 ```
+
+### Credits
+
+Originally forked from [evanpurkhiser/venmo-auto-cashout](https://github.com/evanpurkhiser/venmo-auto-cashout).
 
 ## [MIT License](LICENSE.md)

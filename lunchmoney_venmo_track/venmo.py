@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 
 import structlog
 from venmo_api import Client, Transaction
@@ -7,6 +7,10 @@ from venmo_api import Client, Transaction
 from lunchmoney_venmo_track.lunchmoney import update_lunchmoney_transactions
 
 log = structlog.get_logger()
+
+
+class VenmoApiError(Exception):
+    pass
 
 
 def process_venmo_transactions(
@@ -58,14 +62,14 @@ def process_venmo_transactions(
         cursor.execute("SELECT transaction_id FROM seen_transactions")
         seen_transaction_ids = [row[0] for row in cursor.fetchall()]
 
-    log.info("processing venmo transactions", timestamp=datetime.now())
+    log.info("processing venmo transactions", timestamp=datetime.now(tz=UTC))
 
     # Venmo API client
     venmo = Client(access_token=token)
 
     me = venmo.my_profile()
     if not me:
-        raise Exception("Failed to load Venmo profile")
+        raise VenmoApiError("Failed to load Venmo profile")
 
     current_balance: int = me.balance
 
@@ -85,7 +89,7 @@ def process_venmo_transactions(
     transactions = venmo.user.get_user_transactions(user=me)
 
     if transactions is None:
-        raise Exception("Failed to load transactions")
+        raise VenmoApiError("Failed to load transactions")
 
     # Produce a list of eligible transactions
     for transaction in transactions:
@@ -173,7 +177,7 @@ def process_venmo_transactions(
 
         def _payment_date(t) -> str:
             epoch = t.date_completed or t.date_created
-            return datetime.fromtimestamp(epoch).date().isoformat()
+            return datetime.fromtimestamp(epoch, tz=UTC).date().isoformat()
 
         records = [
             *[

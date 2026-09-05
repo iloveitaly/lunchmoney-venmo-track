@@ -25,4 +25,4 @@ def send_heartbeat(url: str) -> None:
         log.error("heartbeat failed", url=url, error=str(e))
         # We re-raise to trigger tenacity retry, but reraise=False in decorator
         # means the final failure won't crash the app if all retries fail
-        raise e
+        raise
