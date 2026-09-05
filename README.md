@@ -11,6 +11,7 @@ This project uses `uv` for dependency management.
 ```bash
 git clone https://github.com/iloveitaly/lunchmoney-venmo-track
 cd lunchmoney-venmo-track
+cp .env-example .env
 uv sync
 ```
 
@@ -35,6 +36,7 @@ All Venmo transactions processed successfully!
 * **Consistent Tracking**: Only cashes out amounts that match recent transactions to ensure everything is accounted for.
 * **Cron Ready**: Includes built-in support for healthcheck heartbeats and internet connection retries for reliable scheduled execution.
 * **Structured Logging**: Uses `structlog` for clean, searchable logs in both console and JSON formats.
+* **Docker Support**: Pre-built container image with built-in cron daemon for automated scheduling.
 
 ### Consistent Tracking
 
@@ -87,21 +89,45 @@ from venmo_api import Client
 Client.get_access_token(username="myemail@gmail.com", password="myPassword")
 ```
 
+### Docker
+
+A pre-built multi-arch image is published to GitHub Container Registry:
+
+```bash
+docker run -d \
+  --name lunchmoney-venmo-track \
+  --env-file .env \
+  -v $(pwd)/transactions.db:/app/transactions.db \
+  ghcr.io/iloveitaly/lunchmoney-venmo-track:latest
+```
+
+The container automatically schedules execution with the `SCHEDULE` cron expression (defaults to `0 6 * * *`, daily at 6:00 AM).
+
 ### Heartbeat Support
 
 You can specify a `HEARTBEAT_URL` environment variable to be pinged after each successful execution. This is highly recommended for monitoring your cron jobs. We recommend using [Uptime Kuma](https://github.com/louislam/uptime-kuma) to monitor these heartbeats.
 
 ### Environment Variables
 
-You can set the following variables instead of passing flags:
+You can configure the tool using a `.env` file or environment variables instead of CLI flags:
 
 ```bash
-export VENMO_API_TOKEN=
-export TRANSACTION_DB=
-export LUNCHMONEY_TOKEN=
-export LUNCHMONEY_CATEGORY=
-export ALLOW_REMAINING=true
-export HEARTBEAT_URL=
+# Required
+export VENMO_API_TOKEN=""
+
+# Optional - Lunch Money Integration
+export TRANSACTION_DB="transactions.db"
+export LUNCHMONEY_TOKEN=""
+export LUNCHMONEY_CATEGORY=""
+
+# Optional - Behavior & Monitoring
+export ALLOW_REMAINING="true"
+export HEARTBEAT_URL=""
+export JSON_LOGGING="false"
+export LOG_LEVEL="INFO"
+
+# Optional - Docker / Cron Schedule
+export SCHEDULE="0 6 * * *"
 ```
 
 ### Credits
