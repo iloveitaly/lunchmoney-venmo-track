@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/iloveitaly/lunchmoney-venmo-track/compare/v0.1.0...v0.1.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** grant id-token permission to publish job ([ba51df1](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/ba51df1b9ef0010296d7bc808e44087b46513598))
+
 ## 0.1.0 (2026-09-05)
 
 
