@@ -1,6 +1,6 @@
 [project]
 name = "lunchmoney-venmo-track"
-version = "0.1.1"
+version = "0.2.0"
 description = "Automatically cash out Venmo balance and sync transaction details to Lunch Money"
 keywords = ["venmo", "lunchmoney", "personal-finance", "automation"]
 readme = "README.md"
