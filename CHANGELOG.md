@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/iloveitaly/lunchmoney-venmo-track/compare/v0.1.1...v0.2.0) (2026-09-05)
+
+
+### Features
+
+* add build command aliases in Justfile ([54f405f](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/54f405f81074eec404817e3ce9d0686f1f138128))
+* add image-build recipe aliases ([54f405f](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/54f405f81074eec404817e3ce9d0686f1f138128))
+
 ## [0.1.1](https://github.com/iloveitaly/lunchmoney-venmo-track/compare/v0.1.0...v0.1.1) (2026-09-05)
 
 
