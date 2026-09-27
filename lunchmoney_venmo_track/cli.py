@@ -1,8 +1,10 @@
 import sys
 
 import click
+from click_default_group import DefaultGroup
 from decouple import config
 from structlog_config import configure_logger
+from venmo_api import Client
 
 from lunchmoney_venmo_track.heartbeat import send_heartbeat
 from lunchmoney_venmo_track.internet import wait_for_internet_connection
@@ -17,7 +19,23 @@ def setup_logging():
     configure_logger(json_logger=json_logging)
 
 
-@click.command()
+class DefaultCommandGroup(DefaultGroup):
+    def format_options(self, ctx, formatter):
+        default_cmd = self.get_command(ctx, self.default_cmd_name)
+        if default_cmd:
+            default_cmd.format_options(ctx, formatter)
+
+        self.format_commands(ctx, formatter)
+
+
+@click.group(cls=DefaultCommandGroup, default="sync", default_if_no_args=True)
+def cli():
+    """
+    Automatically cash-out your Venmo balance as individual transfers
+    """
+
+
+@cli.command("sync")
 @click.option(
     "--dry-run/--no-dry-run",
     default=False,
@@ -54,7 +72,7 @@ def setup_logging():
     envvar="LUNCHMONEY_CATEGORY",
     help="The Lunch Money category to look for venmo transactions",
 )
-def cli(
+def sync(
     dry_run: bool,
     skip_transfer: bool,
     allow_remaining: bool,
@@ -99,6 +117,41 @@ def cli(
     heartbeat_url = config("HEARTBEAT_URL", default=None)
     if heartbeat_url:
         send_heartbeat(heartbeat_url)
+
+
+@cli.command("get-access-token")
+@click.option(
+    "--username",
+    prompt=True,
+    help="Venmo username, email, or phone number",
+)
+@click.option(
+    "--password",
+    prompt=True,
+    hide_input=True,
+    help="Venmo password",
+)
+@click.option(
+    "--device-id",
+    default=None,
+    help="Optional device ID to avoid two-factor authentication",
+)
+def get_access_token(
+    username: str,
+    password: str,
+    device_id: str | None,
+):
+    """
+    Retrieve Venmo API access token using credentials
+    """
+    token = Client.get_access_token(
+        username=username,
+        password=password,
+        device_id=device_id,
+    )
+
+    if token:
+        click.secho(f"\nYour Venmo API token: {token}", fg="green", bold=True)
 
 
 if __name__ == "__main__":

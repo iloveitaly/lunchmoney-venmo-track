@@ -53,3 +53,51 @@ def test_cli_env_vars(mocker):
     mock_process.assert_called_once()
     assert mock_process.call_args[1]["token"] == "envtoken"
     assert mock_process.call_args[1]["db_path"] == "envdb.db"
+
+
+def test_cli_get_access_token_with_options(mocker):
+    mock_get_token = mocker.patch("lunchmoney_venmo_track.cli.Client.get_access_token")
+    mock_get_token.return_value = "generated_test_token"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "get-access-token",
+            "--username",
+            "test_user",
+            "--password",
+            "test_pass",
+            "--device-id",
+            "test_device",
+        ],
+    )
+
+    assert result.exit_code == 0
+    mock_get_token.assert_called_once_with(
+        username="test_user",
+        password="test_pass",
+        device_id="test_device",
+    )
+    assert "generated_test_token" in result.output
+
+
+def test_cli_get_access_token_prompt(mocker):
+    mock_get_token = mocker.patch("lunchmoney_venmo_track.cli.Client.get_access_token")
+    mock_get_token.return_value = "prompted_token"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["get-access-token"],
+        input="test_user@example.com\nsecret_password\n",
+    )
+
+    assert result.exit_code == 0
+    mock_get_token.assert_called_once_with(
+        username="test_user@example.com",
+        password="secret_password",
+        device_id=None,
+    )
+    assert "prompted_token" in result.output
+

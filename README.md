@@ -78,16 +78,34 @@ All Venmo transactions processed successfully!
 
 ### Getting your API token
 
-You can use `uv run python` to retrieve your token:
+Venmo actively blocks automated OAuth logins with random device IDs (Error `240: OAuth2 Exception`). You have two ways to get your token:
 
-> [!IMPORTANT]
-> You may disregard the `device-id`, we only need the token.
+#### Option 1: Copy token directly from browser (Recommended)
 
-```python
-from venmo_api import Client
+1. Open DevTools in your browser (Network tab).
+2. Log into [account.venmo.com](https://account.venmo.com).
+3. Filter requests by `auth` and inspect the `https://account.venmo.com/api/auth` request.
+4. Copy the `access_token` from the response JSON (or from the `Authorization: Bearer <token>` request header of any authenticated call).
+5. Set `VENMO_API_TOKEN` to this value.
 
-Client.get_access_token(username="myemail@gmail.com", password="myPassword")
+#### Option 2: Use CLI with browser device ID
+
+If you prefer to generate a token through the CLI, pass the `v_id` cookie from a browser that is already signed in to Venmo. A random device id is what triggers error `240`.
+
+`v_id` is `HttpOnly`, so the page console cannot read it. `document.cookie` does not include it. Copy it from DevTools:
+
+1. Open [account.venmo.com](https://account.venmo.com) in the browser you already use for Venmo.
+2. Open DevTools → **Application** (Chrome) or **Storage** (Firefox) → **Cookies**.
+3. Select `https://account.venmo.com`. Check `https://venmo.com` if the cookie is listed there instead.
+4. Copy the `v_id` value. It looks like `fp01-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
+
+The same value is on the **Network** tab. Reload the page, open a request to `venmo.com`, and read `v_id` from the `Cookie` request header. Authenticated API calls also send it as `device-id` or `x-device-id`.
+
+```bash
+lunchmoney-venmo-track get-access-token --device-id "fp01-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
+
+Stay in the browser profile where you are already signed in. A new profile receives a new `v_id`, and Venmo treats that as an unknown device.
 
 ### Docker
 
@@ -102,6 +120,12 @@ docker run -d \
 ```
 
 The container automatically schedules execution with the `SCHEDULE` cron expression (defaults to `0 6 * * *`, daily at 6:00 AM).
+
+To manually run the sync command that cron executes and verify everything is working:
+
+```bash
+docker exec -it <cid> lunchmoney-venmo-track
+```
 
 ### Heartbeat Support
 
