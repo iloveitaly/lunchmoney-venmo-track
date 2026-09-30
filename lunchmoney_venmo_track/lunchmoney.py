@@ -147,7 +147,7 @@ def update_lunchmoney_transactions(
         ORDER BY date_created DESC"""
     )
     venmo_transactions = [
-        VenmoRecord.model_validate(dict(zip(columns, row)))
+        VenmoRecord.model_validate(dict(zip(columns, row, strict=True)))
         for row in cursor.fetchall()
     ]
 

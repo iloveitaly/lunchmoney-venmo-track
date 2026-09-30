@@ -21,9 +21,10 @@ def setup_logging():
 
 class DefaultCommandGroup(DefaultGroup):
     def format_options(self, ctx, formatter):
-        default_cmd = self.get_command(ctx, self.default_cmd_name)
-        if default_cmd:
-            default_cmd.format_options(ctx, formatter)
+        if self.default_cmd_name:
+            default_cmd = self.get_command(ctx, self.default_cmd_name)
+            if default_cmd:
+                default_cmd.format_options(ctx, formatter)
 
         self.format_commands(ctx, formatter)
 
@@ -144,11 +145,17 @@ def get_access_token(
     """
     Retrieve Venmo API access token using credentials
     """
-    token = Client.get_access_token(
-        username=username,
-        password=password,
-        device_id=device_id,
-    )
+    if device_id is not None:
+        token = Client.get_access_token(
+            username=username,
+            password=password,
+            device_id=device_id,
+        )
+    else:
+        token = Client.get_access_token(
+            username=username,
+            password=password,
+        )
 
     if token:
         click.secho(f"\nYour Venmo API token: {token}", fg="green", bold=True)

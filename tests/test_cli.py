@@ -97,7 +97,5 @@ def test_cli_get_access_token_prompt(mocker):
     mock_get_token.assert_called_once_with(
         username="test_user@example.com",
         password="secret_password",
-        device_id=None,
     )
     assert "prompted_token" in result.output
-
