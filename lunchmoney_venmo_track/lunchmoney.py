@@ -1,12 +1,21 @@
-from dataclasses import dataclass, fields
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from decimal import Decimal
 from sqlite3 import Connection
 from typing import Literal
 
 import structlog
-from lunchable import LunchMoney
-from lunchable.models.transactions import TransactionObject, TransactionUpdateObject
+from lunchmoney import (
+    ApiClient,
+    CategoriesApi,
+    CategoryObject,
+    Configuration,
+    TransactionObject,
+    TransactionsApi,
+    TransactionsBulkApi,
+    UpdateTransactionObject,
+)
+from pydantic import BaseModel
+from whenever import Date
 
 log = structlog.get_logger()
 
@@ -16,6 +25,54 @@ CUTOFF_DAYS = 60
 
 # Maximum days between a venmo payment_date and a LM transaction date for a match
 DATE_PROXIMITY_DAYS = 5
+
+
+class LunchMoney:
+    """Lunch Money API client wrapping lunchmoney-python API classes."""
+
+    def __init__(self, access_token: str, client: ApiClient | None = None):
+        self.configuration = Configuration(access_token=access_token)
+        self.client = client or ApiClient(self.configuration)
+        self.categories_api = CategoriesApi(self.client)
+        self.transactions_api = TransactionsApi(self.client)
+        self.transactions_bulk_api = TransactionsBulkApi(self.client)
+
+    def get_categories(self) -> list[CategoryObject]:
+        response = self.categories_api.get_all_categories(format="flattened")
+        return response.categories or []
+
+    def get_transactions(
+        self,
+        category_id: int,
+        start_date: date,
+        end_date: date,
+    ) -> list[TransactionObject]:
+        response = self.transactions_bulk_api.get_all_transactions(
+            category_id=category_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return response.transactions or []
+
+    def update_transaction(
+        self,
+        transaction_id: int,
+        update: UpdateTransactionObject,
+    ) -> TransactionObject:
+        return self.transactions_api.update_transaction(
+            id=transaction_id,
+            update_transaction_object=update,
+        )
+
+
+class VenmoRecord(BaseModel):
+    id: int
+    transaction_type: Literal["expense", "income"]
+    amount: int
+    note: str
+    target_actor: str
+    # ISO date string; rows without payment_date are excluded at query level
+    payment_date: str
 
 
 def update_lunchmoney_transactions(
@@ -46,32 +103,34 @@ def update_lunchmoney_transactions(
         return
 
     # Find lunch money transactiosn that haven't been updated
-    lm_transactions = [
-        transaction
-        for transaction in lunch.get_transactions(
-            category_id=category.id,
-            start_date=(datetime.now(tz=UTC) - timedelta(days=CUTOFF_DAYS)).date(),
-            end_date=datetime.now(tz=UTC).date(),
+    today = Date.today_in_system_tz()
+    start_date = today.add(days=-CUTOFF_DAYS).to_stdlib()
+    end_date = today.to_stdlib()
+
+    transactions = lunch.get_transactions(
+        category_id=category.id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    lm_transactions = []
+    for transaction in transactions:
+        is_grouped = (
+            getattr(transaction, "group_parent_id", None) is not None
+            or getattr(transaction, "group_id", None) is not None
+            or getattr(transaction, "is_group_parent", False)
         )
-        if
-        # Ignore grouped transactions
-        transaction.group_id is None
-        and
-        # Transactions with notes have already been updated
-        transaction.notes is None
-    ]
+        if is_grouped:
+            # Ignore grouped transactions
+            continue
 
-    @dataclass
-    class VenmoRecord:
-        id: int
-        transaction_type: Literal["expense", "income"]
-        amount: int
-        note: str
-        target_actor: str
-        # ISO date string; rows without payment_date are excluded at query level
-        payment_date: str
+        if transaction.notes is not None:
+            # Transactions with notes have already been updated
+            continue
 
-    columns = [f.name for f in fields(VenmoRecord)]
+        lm_transactions.append(transaction)
+
+    columns = list(VenmoRecord.model_fields.keys())
 
     # Find transactions that we haven't associated a lunch money transaction,
     # order by rescency so older transactions that were never correctly associated.
@@ -87,14 +146,17 @@ def update_lunchmoney_transactions(
             payment_date IS NOT NULL
         ORDER BY date_created DESC"""
     )
-    venmo_transactions = [VenmoRecord(*row) for row in cursor.fetchall()]
+    venmo_transactions = [
+        VenmoRecord.model_validate(dict(zip(columns, row)))
+        for row in cursor.fetchall()
+    ]
 
     # Track how many transactions we were able to match
     matched_transactions: list[tuple[VenmoRecord, TransactionObject]] = []
 
     # Update lunch money and venmo transaction records
     for lm_txn in lm_transactions:
-        amount = int(Decimal(str(abs(lm_txn.amount))) * 100)
+        amount = int(abs(Decimal(str(lm_txn.amount))) * 100)
 
         # Match by amount only — sign from Plaid/bank sync is not a reliable
         # proxy for venmo P2P direction (both income and expense can appear as
@@ -104,10 +166,13 @@ def update_lunchmoney_transactions(
         if not candidates:
             continue
 
-        lm_date = lm_txn.date
+        lm_date = getattr(lm_txn, "var_date", None) or getattr(lm_txn, "date", None)
+        assert lm_date is not None
+        target_date: date = lm_date
+
         closest = min(
             candidates,
-            key=lambda v: abs((date.fromisoformat(v.payment_date) - lm_date).days),
+            key=lambda v: abs((date.fromisoformat(v.payment_date) - target_date).days),
         )
         closest_date = date.fromisoformat(closest.payment_date)
 
@@ -123,11 +188,9 @@ def update_lunchmoney_transactions(
 
         # Update transaction in lunch money
         # TransactionUpdateObject uses Field(None) in lunchable which pyright flags as missing arguments if called directly
-        update = TransactionUpdateObject.model_validate(
-            {
-                "payee": matching_venmo.target_actor,
-                "notes": matching_venmo.note,
-            }
+        update = UpdateTransactionObject(
+            payee=matching_venmo.target_actor,
+            notes=matching_venmo.note,
         )
         lunch.update_transaction(lm_txn.id, update)
 

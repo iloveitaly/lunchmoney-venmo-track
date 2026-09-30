@@ -38,6 +38,13 @@ All Venmo transactions processed successfully!
 * **Structured Logging**: Uses `structlog` for clean, searchable logs in both console and JSON formats.
 * **Docker Support**: Pre-built container image with built-in cron daemon for automated scheduling.
 
+### Bank Transfers and Unofficial API
+
+This tool relies on an unofficial, reverse-engineered Venmo API. When executed without `--dry-run` or `--skip-transfer`, it initiates real bank transfers to cash out your Venmo balance to your linked bank account.
+
+* Use `--dry-run` to test transaction discovery and matching without initiating bank transfers or writing to the database.
+* Use `--skip-transfer` to record transactions and sync metadata to Lunch Money without triggering bank transfers.
+
 ### Consistent Tracking
 
 By default, the tool only cashes out amounts that add up to the most recent transactions. This is useful when the script is running on a cron-job and you want to be sure it never misses an individual payment cash out (This can happen when the tool runs immediately after a payment is received, but before the payment appears in the transaction list).

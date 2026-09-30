@@ -1,9 +1,18 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
-from lunchable.models.transactions import TransactionObject
+from lunchmoney import (
+    CategoryObject,
+    GetAllCategories200Response,
+    GetAllTransactions200Response,
+    TransactionObject,
+    UpdateTransactionObject,
+)
 
-from lunchmoney_venmo_track.lunchmoney import update_lunchmoney_transactions
+from lunchmoney_venmo_track.lunchmoney import (
+    LunchMoney,
+    update_lunchmoney_transactions,
+)
 
 
 def test_update_lm_category_not_found(memory_db, mock_lunch_money):
@@ -185,3 +194,119 @@ def test_update_lm_already_linked(memory_db, mock_lunch_money):
 
     # Should not match because the query filters WHERE lunchmoney_transaction_id is NULL
     mock_lunch_money.update_transaction.assert_not_called()
+
+
+def test_update_lm_ignores_grouped_and_noted(memory_db, mock_lunch_money):
+    """Test that grouped transactions and transactions with notes are ignored."""
+    mock_cat = MagicMock()
+    mock_cat.name = "Venmo"
+    mock_cat.id = 123
+    mock_lunch_money.get_categories.return_value = [mock_cat]
+
+    lm_grouped_parent = MagicMock(spec=TransactionObject)
+    lm_grouped_parent.id = 101
+    lm_grouped_parent.amount = -15.00
+    lm_grouped_parent.date = datetime.now(tz=UTC).date()
+    lm_grouped_parent.group_parent_id = None
+    lm_grouped_parent.group_id = None
+    lm_grouped_parent.is_group_parent = True
+    lm_grouped_parent.notes = None
+
+    lm_grouped_child = MagicMock(spec=TransactionObject)
+    lm_grouped_child.id = 102
+    lm_grouped_child.amount = -15.00
+    lm_grouped_child.date = datetime.now(tz=UTC).date()
+    lm_grouped_child.group_parent_id = 99
+    lm_grouped_child.group_id = None
+    lm_grouped_child.is_group_parent = False
+    lm_grouped_child.notes = None
+
+    lm_has_notes = MagicMock(spec=TransactionObject)
+    lm_has_notes.id = 103
+    lm_has_notes.amount = -15.00
+    lm_has_notes.date = datetime.now(tz=UTC).date()
+    lm_has_notes.group_parent_id = None
+    lm_has_notes.group_id = None
+    lm_has_notes.is_group_parent = False
+    lm_has_notes.notes = "Already updated"
+
+    mock_lunch_money.get_transactions.return_value = [
+        lm_grouped_parent,
+        lm_grouped_child,
+        lm_has_notes,
+    ]
+
+    memory_db.execute(
+        """
+        INSERT INTO seen_transactions
+        (transaction_type, transaction_id, amount, note, target_actor, payment_date, date_created)
+        VALUES ('expense', 'v1', 1500, 'Tacos', 'Taqueria', date('now'), date('now'))
+        """
+    )
+    memory_db.commit()
+
+    update_lunchmoney_transactions(memory_db, "token", "Venmo")
+
+    mock_lunch_money.update_transaction.assert_not_called()
+
+
+def test_lunchmoney_client_get_categories(mocker):
+    """Test LunchMoney.get_categories delegates to CategoriesApi."""
+    mock_api_client = mocker.MagicMock()
+    client = LunchMoney(access_token="test_token", client=mock_api_client)
+
+    cat = MagicMock(spec=CategoryObject)
+    cat.name = "Venmo"
+    mocker.patch.object(
+        client.categories_api,
+        "get_all_categories",
+        return_value=GetAllCategories200Response(categories=[cat]),
+    )
+
+    categories = client.get_categories()
+    assert len(categories) == 1
+    assert categories[0].name == "Venmo"
+    client.categories_api.get_all_categories.assert_called_once_with(format="flattened")
+
+
+def test_lunchmoney_client_get_transactions(mocker):
+    """Test LunchMoney.get_transactions delegates to TransactionsBulkApi."""
+    mock_api_client = mocker.MagicMock()
+    client = LunchMoney(access_token="test_token", client=mock_api_client)
+
+    txn = MagicMock(spec=TransactionObject)
+    mocker.patch.object(
+        client.transactions_bulk_api,
+        "get_all_transactions",
+        return_value=GetAllTransactions200Response(transactions=[txn], has_more=False),
+    )
+
+    today = datetime.now(tz=UTC).date()
+    txns = client.get_transactions(category_id=123, start_date=today, end_date=today)
+    assert len(txns) == 1
+    client.transactions_bulk_api.get_all_transactions.assert_called_once_with(
+        category_id=123,
+        start_date=today,
+        end_date=today,
+    )
+
+
+def test_lunchmoney_client_update_transaction(mocker):
+    """Test LunchMoney.update_transaction delegates to TransactionsApi."""
+    mock_api_client = mocker.MagicMock()
+    client = LunchMoney(access_token="test_token", client=mock_api_client)
+
+    txn = MagicMock(spec=TransactionObject)
+    mocker.patch.object(
+        client.transactions_api,
+        "update_transaction",
+        return_value=txn,
+    )
+
+    update = UpdateTransactionObject(payee="Store", notes="Note")
+    res = client.update_transaction(transaction_id=999, update=update)
+    assert res == txn
+    client.transactions_api.update_transaction.assert_called_once_with(
+        id=999,
+        update_transaction_object=update,
+    )
