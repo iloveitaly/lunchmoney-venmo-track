@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/iloveitaly/lunchmoney-venmo-track/compare/v0.2.0...v0.3.0) (2026-10-01)
+
+
+### Features
+
+* **cli:** add get-access-token command ([2763467](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/276346721329b1ba47a948e9d18f2f6c0adb44c9))
+* **lunchmoney:** migrate from lunchable to lunchmoney-python ([7ea6574](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/7ea657427c1e25f226f204cdd0b6bde75c2ec324))
+
+
+### Bug Fixes
+
+* **cli:** omit device_id when retrieving access token if unset ([8b4430c](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/8b4430c27b73be412cded5ee7369adf7031d5cce))
+* resolve ruff and pyright lint errors in cli and lunchmoney ([8b4430c](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/8b4430c27b73be412cded5ee7369adf7031d5cce))
+
+
+### Documentation
+
+* document Docker usage and standardize environment configuration ([14f1359](https://github.com/iloveitaly/lunchmoney-venmo-track/commit/14f1359a1dd32688332bfad4dd7bea1a0790d722))
+
 ## [0.2.0](https://github.com/iloveitaly/lunchmoney-venmo-track/compare/v0.1.1...v0.2.0) (2026-09-05)
 
 
